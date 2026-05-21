@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # --- CAPA DE DATOS (MYSQL) ---
+  database:
+    image: mysql:8
+    container_name: innovatech-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Innovatech2025!
+      MYSQL_DATABASE: appdb
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - innovatech-net
+
+  # --- CAPA DE NEGOCIO: MICROSERVICIO 1 ---
+  backend-1:
+    build:
+      context: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+    container_name: innovatech-back-1
+    restart: always
+    ports:
+      - "8081:8080" # Expuesto al host por el puerto 8081
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://database:3306/appdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=Innovatech2025!
+    depends_on:
+      - database
+    networks:
+      - innovatech-net
+
+  # --- CAPA DE NEGOCIO: MICROSERVICIO 2 ---
+  backend-2:
+    build:
+      context: ./back-Ventas_SpringBoot/Springboot-API-REST
+    container_name: innovatech-back-2
+    restart: always
+    ports:
+      - "8082:8080" # Expuesto al host por el puerto 8082 para que no choquen
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://database:3306/appdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=Innovatech2025!
+    depends_on:
+      - database
+    networks:
+      - innovatech-net
+
+  # --- CAPA DE PRESENTACIÓN (FRONTEND) ---
+  frontend:
+    build:
+      context: ./front_despacho
+    container_name: innovatech-front
+    restart: always
+    ports:
+      - "80:8080" # Nginx sin privilegios escucha interno en 8080, sale por el puerto 80 estándar
+    networks:
+      - innovatech-net
+
+# --- VOLÚMENES (IE3: Persistencia de datos) ---
+volumes:
+  db_data:
+    name: innovatech_db_data
+
+# --- REDES INTERNAS (Aislamiento de servicios) ---
+networks:
+  innovatech-net:
+    driver: bridge
