@@ -1,0 +1,42 @@
+name: Deploy Innovatech to AWS EC2
+
+on:
+  push:
+    branches:
+      - deploy # Se activa solo cuando subes cambios a la rama deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Ejecutar comandos en el servidor de AWS vía SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            # 1. Entrar a la carpeta del proyecto o clonarlo si no existe
+            if [ ! -d "proyecto-innovatech" ]; then
+              git clone -b deploy https://github.com/JuanTulon/devops-I.git proyecto-innovatech
+              cd proyecto-innovatech
+            else
+              cd proyecto-innovatech
+              git restore .
+              git pull origin deploy
+            fi
+
+            # 2. Reemplazar las barras invertidas en producción por si acaso
+            sed -i 's/\\/\//g' docker-compose.yml
+
+            # 3. Detener lo que esté corriendo, limpiar cache y levantar el stack actualizado
+            docker compose down
+            docker compose up -d --build
+
+            # 4. Limpieza de imágenes huérfanas para no llenar el disco del EC2
+            docker image prune -f
